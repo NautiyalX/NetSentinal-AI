@@ -247,15 +247,5 @@ This project addresses two fundamentally different detection paradigms:
 
 ---
 
-## 👨‍💻 About the Author
 
-**Vicky Gupta** — Data Engineering Analyst @ Accenture (4.5 years) | Aspiring Data Scientist
-
-Passionate about applying machine learning to real-world security and business problems. Experienced in PySpark, ETL pipelines, and deploying end-to-end ML systems to production.
-
-🔗 [LinkedIn](https://www.linkedin.com/in/vicky-gupta-583016168/) | [GitHub](https://github.com/vicky60629)
-
-📧 vg60629@gmail.com
-
----
 *
