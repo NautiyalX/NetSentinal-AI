@@ -258,11 +258,4 @@ Passionate about applying machine learning to real-world security and business p
 📧 vg60629@gmail.com
 
 ---
-
-## 📄 License
-
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
-
----
-
-⭐ **If you found this project useful, please star the repository — it helps the community discover it!**
+*
