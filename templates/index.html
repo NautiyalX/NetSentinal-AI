@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NetSentinel | Network Intrusion Detection</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    body { background:#0b1220; color:#e8eef8; font-family:Arial,sans-serif; }
+    .login { width:min(900px,94%); margin:28px auto; padding:26px; background:#121d30; border:1px solid #2a3a52; border-radius:16px; box-sizing:border-box; }
+    h1 { color:#55d6be!important; }
+    .intro,.help,.warning { color:#aebdd1; line-height:1.5; }
+    form { display:grid; grid-template-columns:1fr 1fr; gap:15px 20px; }
+    .field { display:flex; flex-direction:column; gap:7px; }
+    label { color:#dce7f6; font-size:.92rem; font-weight:600; }
+    small { color:#aebdd1; line-height:1.4; }
+    input,select { padding:11px; width:100%; box-sizing:border-box; border:1px solid #3b4d67; border-radius:8px; background:#0b1424; color:#f2f6fc; }
+    button { grid-column:1/-1; border:0; border-radius:8px; padding:13px; background:#55d6be; color:#09221d; font-size:1rem; font-weight:bold; cursor:pointer; }
+    .result,.error { margin-top:22px; padding:18px; border-radius:10px; }
+    .result { border:1px solid #2c8979; background:#102b2b; }
+    .error { border:1px solid #a64755; background:#321b25; color:#ffd8dd; }
+    .result h2 { color:#55d6be; }
+    .warning { margin-top:12px; font-size:.88rem; }
+    @media(max-width:650px) { form { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+<div class="login">
+  <h1>NetSentinel</h1>
+  <p class="intro">Enter network connection statistics. The model predicts a broad traffic category; you do not choose the attack name.</p>
+
+  <form action="{{ url_for('home') }}" method="post">
+    <div class="field">
+      <label for="service">Network service</label>
+      <select id="service" name="service" required>
+        {% for value in ["http","private","domain_u","smtp","ftp","ftp_data","telnet","eco_i","ecr_i","other"] %}
+        <option value="{{ value }}" {% if request.form.get('service','http') == value %}selected{% endif %}>{{ value }}</option>
+        {% endfor %}
+      </select>
+      <small>Service used by the connection.</small>
+    </div>
+    <div class="field">
+      <label for="flag">Connection state</label>
+      <select id="flag" name="flag" required>
+        {% for value in ["SF","S0","REJ","RSTR","RSTO","S1","S2","S3","SH","OTH"] %}
+        <option value="{{ value }}" {% if request.form.get('flag','SF') == value %}selected{% endif %}>{{ value }}</option>
+        {% endfor %}
+      </select>
+      <small>SF = completed; S0 = incomplete connection attempt.</small>
+    </div>
+    <div class="field">
+      <label for="count">Connection count</label>
+      <input id="count" name="count" type="number" min="0" step="1" value="{{ request.form.get('count','10') }}" required>
+      <small>Connection count in the dataset's time window.</small>
+    </div>
+    <div class="field">
+      <label for="dst_host_srv_count">Destination-host service count</label>
+      <input id="dst_host_srv_count" name="dst_host_srv_count" type="number" min="0" step="1" value="{{ request.form.get('dst_host_srv_count','10') }}" required>
+    </div>
+    <div class="field">
+      <label for="dst_host_diff_srv_rate">Destination different-service rate (0–1)</label>
+      <input id="dst_host_diff_srv_rate" name="dst_host_diff_srv_rate" type="number" min="0" max="1" step="0.01" value="{{ request.form.get('dst_host_diff_srv_rate','0.20') }}" required>
+    </div>
+    <div class="field">
+      <label for="dst_host_same_src_port_rate">Same source-port rate (0–1)</label>
+      <input id="dst_host_same_src_port_rate" name="dst_host_same_src_port_rate" type="number" min="0" max="1" step="0.01" value="{{ request.form.get('dst_host_same_src_port_rate','0.50') }}" required>
+    </div>
+    <div class="field">
+      <label for="dst_host_same_srv_rate">Destination same-service rate (0–1)</label>
+      <input id="dst_host_same_srv_rate" name="dst_host_same_srv_rate" type="number" min="0" max="1" step="0.01" value="{{ request.form.get('dst_host_same_srv_rate','0.80') }}" required>
+    </div>
+    <div class="field">
+      <label for="same_srv_rate">Same-service rate (0–1)</label>
+      <input id="same_srv_rate" name="same_srv_rate" type="number" min="0" max="1" step="0.01" value="{{ request.form.get('same_srv_rate','0.80') }}" required>
+    </div>
+    <div class="field">
+      <label for="serror_rate">SYN/error rate (0–1)</label>
+      <input id="serror_rate" name="serror_rate" type="number" min="0" max="1" step="0.01" value="{{ request.form.get('serror_rate','0.10') }}" required>
+    </div>
+    <div class="field">
+      <label for="last_flag">Last flag value</label>
+      <input id="last_flag" name="last_flag" type="number" min="0" step="1" value="{{ request.form.get('last_flag','10') }}" required>
+      <small>Dataset-specific numeric feature.</small>
+    </div>
+    <div class="field">
+      <label for="logged_in">Successfully logged in?</label>
+      <select id="logged_in" name="logged_in" required>
+        <option value="0" {% if request.form.get('logged_in','0') == '0' %}selected{% endif %}>No</option>
+        <option value="1" {% if request.form.get('logged_in','0') == '1' %}selected{% endif %}>Yes</option>
+      </select>
+    </div>
+    <button type="submit">Analyze connection</button>
+  </form>
+
+  {% if result %}
+  <section class="result">
+    <h2>Prediction: {{ result.label }}</h2>
+    <p>Model class: <strong>{{ result.prediction }}</strong></p>
+    {% if result.confidence_estimate is not none %}
+    <p>Model score: {{ "%.1f"|format(result.confidence_estimate * 100) }}%</p>
+    {% endif %}
+    <p class="warning">{{ result.warning }}</p>
+  </section>
+  {% endif %}
+  {% if error %}
+  <section class="error"><strong>Unable to predict:</strong> {{ error }}</section>
+  {% endif %}
+
+  <p class="warning">This is a benchmark-feature demo, not a live packet monitor. The numbers should ideally come from extracted network telemetry; arbitrary sample values are only for testing the interface. A prediction is not proof of an attack.</p>
+</div>
+</body>
+</html>
