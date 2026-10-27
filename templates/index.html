@@ -1,112 +1,548 @@
+
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>NetSentinel | Network Intrusion Detection</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
   <style>
-    body { background:#0b1220; color:#e8eef8; font-family:Arial,sans-serif; }
-    .login { width:min(900px,94%); margin:28px auto; padding:26px; background:#121d30; border:1px solid #2a3a52; border-radius:16px; box-sizing:border-box; }
-    h1 { color:#55d6be!important; }
-    .intro,.help,.warning { color:#aebdd1; line-height:1.5; }
-    form { display:grid; grid-template-columns:1fr 1fr; gap:15px 20px; }
-    .field { display:flex; flex-direction:column; gap:7px; }
-    label { color:#dce7f6; font-size:.92rem; font-weight:600; }
-    small { color:#aebdd1; line-height:1.4; }
-    input,select { padding:11px; width:100%; box-sizing:border-box; border:1px solid #3b4d67; border-radius:8px; background:#0b1424; color:#f2f6fc; }
-    button { grid-column:1/-1; border:0; border-radius:8px; padding:13px; background:#55d6be; color:#09221d; font-size:1rem; font-weight:bold; cursor:pointer; }
-    .result,.error { margin-top:22px; padding:18px; border-radius:10px; }
-    .result { border:1px solid #2c8979; background:#102b2b; }
-    .error { border:1px solid #a64755; background:#321b25; color:#ffd8dd; }
-    .result h2 { color:#55d6be; }
-    .warning { margin-top:12px; font-size:.88rem; }
-    @media(max-width:650px) { form { grid-template-columns:1fr; } }
+    body {
+      background: #0b1220;
+      color: #e8eef8;
+      font-family: Arial, sans-serif;
+      margin: 0;
+    }
+
+    .login {
+      width: min(1000px, 94%);
+      margin: 28px auto;
+      padding: 26px;
+      background: #121d30;
+      border: 1px solid #2a3a52;
+      border-radius: 16px;
+      box-sizing: border-box;
+    }
+
+    h1, .result h2 {
+      color: #55d6be;
+    }
+
+    h2, h3 {
+      color: #dce7f6;
+    }
+
+    .intro, .help, .warning {
+      color: #aebdd1;
+      line-height: 1.5;
+    }
+
+    form {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px 20px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    label {
+      color: #dce7f6;
+      font-size: .92rem;
+      font-weight: 600;
+    }
+
+    small {
+      color: #aebdd1;
+      line-height: 1.4;
+    }
+
+    input, select {
+      padding: 11px;
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #3b4d67;
+      border-radius: 8px;
+      background: #0b1424;
+      color: #f2f6fc;
+    }
+
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 13px;
+      background: #55d6be;
+      color: #09221d;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .submit-button {
+      grid-column: 1 / -1;
+    }
+
+    button:hover {
+      filter: brightness(1.08);
+    }
+
+    .result, .error, .history-section {
+      margin-top: 22px;
+      padding: 18px;
+      border-radius: 10px;
+    }
+
+    .result {
+      border: 1px solid #2c8979;
+      background: #102b2b;
+    }
+
+    .error {
+      border: 1px solid #a64755;
+      background: #321b25;
+      color: #ffd8dd;
+    }
+
+    .warning {
+      margin-top: 12px;
+      font-size: .88rem;
+    }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .result-item {
+      padding: 14px;
+      background: #0b2025;
+      border: 1px solid #28514e;
+      border-radius: 8px;
+    }
+
+    .result-label {
+      display: block;
+      margin-bottom: 8px;
+      color: #aebdd1;
+      font-size: .88rem;
+    }
+
+    .result-value {
+      font-size: 1.15rem;
+      font-weight: bold;
+      overflow-wrap: anywhere;
+    }
+
+    .severity {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: .9rem;
+      font-weight: bold;
+    }
+
+    .severity-low {
+      background: #174b35;
+      color: #a6f0c3;
+    }
+
+    .severity-medium {
+      background: #594718;
+      color: #ffe39a;
+    }
+
+    .severity-high {
+      background: #63331b;
+      color: #ffc19a;
+    }
+
+    .severity-critical {
+      background: #681f32;
+      color: #ffb5c3;
+    }
+
+    .history-section {
+      border: 1px solid #2a3a52;
+      background: #0e192a;
+    }
+
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .refresh-button {
+      padding: 9px 14px;
+      font-size: .88rem;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      margin-top: 16px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: .9rem;
+    }
+
+    th, td {
+      padding: 12px 10px;
+      border-bottom: 1px solid #2a3a52;
+      white-space: nowrap;
+    }
+
+    th {
+      background: #17253a;
+      color: #55d6be;
+    }
+
+    td {
+      color: #dce7f6;
+    }
+
+    .history-status {
+      color: #aebdd1;
+      font-size: .9rem;
+    }
+
+    @media (max-width: 650px) {
+      form, .result-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .login {
+        padding: 18px;
+      }
+
+      .submit-button {
+        grid-column: auto;
+      }
+    }
   </style>
 </head>
+
 <body>
 <div class="login">
   <h1>NetSentinel</h1>
-  <p class="intro">Enter network connection statistics. The model predicts a broad traffic category; you do not choose the attack name.</p>
+
+  <p class="intro">
+    Enter network connection statistics. The model predicts a broad
+    traffic category; you do not choose the attack name.
+  </p>
 
   <form action="{{ url_for('home') }}" method="post">
     <div class="field">
       <label for="service">Network service</label>
       <select id="service" name="service" required>
-        {% for value in ["http","private","domain_u","smtp","ftp","ftp_data","telnet","eco_i","ecr_i","other"] %}
-        <option value="{{ value }}" {% if request.form.get('service','http') == value %}selected{% endif %}>{{ value }}</option>
+        {% for value in
+          ["http","private","domain_u","smtp","ftp","ftp_data",
+           "telnet","eco_i","ecr_i","other"] %}
+        <option value="{{ value }}"
+          {% if request.form.get('service', 'http') == value %}
+          selected
+          {% endif %}>{{ value }}</option>
         {% endfor %}
       </select>
       <small>Service used by the connection.</small>
     </div>
+
     <div class="field">
       <label for="flag">Connection state</label>
       <select id="flag" name="flag" required>
-        {% for value in ["SF","S0","REJ","RSTR","RSTO","S1","S2","S3","SH","OTH"] %}
-        <option value="{{ value }}" {% if request.form.get('flag','SF') == value %}selected{% endif %}>{{ value }}</option>
+        {% for value in
+          ["SF","S0","REJ","RSTR","RSTO","S1","S2","S3","SH","OTH"] %}
+        <option value="{{ value }}"
+          {% if request.form.get('flag', 'SF') == value %}
+          selected
+          {% endif %}>{{ value }}</option>
         {% endfor %}
       </select>
       <small>SF = completed; S0 = incomplete connection attempt.</small>
     </div>
+
     <div class="field">
       <label for="count">Connection count</label>
-      <input id="count" name="count" type="number" min="0" step="1" value="{{ request.form.get('count','10') }}" required>
+      <input id="count" name="count" type="number" min="0" step="1"
+        value="{{ request.form.get('count', '10') }}" required>
       <small>Connection count in the dataset's time window.</small>
     </div>
+
     <div class="field">
-      <label for="dst_host_srv_count">Destination-host service count</label>
-      <input id="dst_host_srv_count" name="dst_host_srv_count" type="number" min="0" step="1" value="{{ request.form.get('dst_host_srv_count','10') }}" required>
+      <label for="dst_host_srv_count">
+        Destination-host service count
+      </label>
+      <input id="dst_host_srv_count" name="dst_host_srv_count"
+        type="number" min="0" step="1"
+        value="{{ request.form.get('dst_host_srv_count', '10') }}"
+        required>
     </div>
+
     <div class="field">
-      <label for="dst_host_diff_srv_rate">Destination different-service rate (0–1)</label>
-      <input id="dst_host_diff_srv_rate" name="dst_host_diff_srv_rate" type="number" min="0" max="1" step="0.01" value="{{ request.form.get('dst_host_diff_srv_rate','0.20') }}" required>
+      <label for="dst_host_diff_srv_rate">
+        Destination different-service rate (0–1)
+      </label>
+      <input id="dst_host_diff_srv_rate"
+        name="dst_host_diff_srv_rate" type="number"
+        min="0" max="1" step="0.01"
+        value="{{ request.form.get('dst_host_diff_srv_rate', '0.20') }}"
+        required>
     </div>
+
     <div class="field">
-      <label for="dst_host_same_src_port_rate">Same source-port rate (0–1)</label>
-      <input id="dst_host_same_src_port_rate" name="dst_host_same_src_port_rate" type="number" min="0" max="1" step="0.01" value="{{ request.form.get('dst_host_same_src_port_rate','0.50') }}" required>
+      <label for="dst_host_same_src_port_rate">
+        Same source-port rate (0–1)
+      </label>
+      <input id="dst_host_same_src_port_rate"
+        name="dst_host_same_src_port_rate" type="number"
+        min="0" max="1" step="0.01"
+        value="{{ request.form.get('dst_host_same_src_port_rate', '0.50') }}"
+        required>
     </div>
+
     <div class="field">
-      <label for="dst_host_same_srv_rate">Destination same-service rate (0–1)</label>
-      <input id="dst_host_same_srv_rate" name="dst_host_same_srv_rate" type="number" min="0" max="1" step="0.01" value="{{ request.form.get('dst_host_same_srv_rate','0.80') }}" required>
+      <label for="dst_host_same_srv_rate">
+        Destination same-service rate (0–1)
+      </label>
+      <input id="dst_host_same_srv_rate"
+        name="dst_host_same_srv_rate" type="number"
+        min="0" max="1" step="0.01"
+        value="{{ request.form.get('dst_host_same_srv_rate', '0.80') }}"
+        required>
     </div>
+
     <div class="field">
       <label for="same_srv_rate">Same-service rate (0–1)</label>
-      <input id="same_srv_rate" name="same_srv_rate" type="number" min="0" max="1" step="0.01" value="{{ request.form.get('same_srv_rate','0.80') }}" required>
+      <input id="same_srv_rate" name="same_srv_rate" type="number"
+        min="0" max="1" step="0.01"
+        value="{{ request.form.get('same_srv_rate', '0.80') }}"
+        required>
     </div>
+
     <div class="field">
       <label for="serror_rate">SYN/error rate (0–1)</label>
-      <input id="serror_rate" name="serror_rate" type="number" min="0" max="1" step="0.01" value="{{ request.form.get('serror_rate','0.10') }}" required>
+      <input id="serror_rate" name="serror_rate" type="number"
+        min="0" max="1" step="0.01"
+        value="{{ request.form.get('serror_rate', '0.10') }}"
+        required>
     </div>
+
     <div class="field">
       <label for="last_flag">Last flag value</label>
-      <input id="last_flag" name="last_flag" type="number" min="0" step="1" value="{{ request.form.get('last_flag','10') }}" required>
+      <input id="last_flag" name="last_flag" type="number"
+        min="0" step="1"
+        value="{{ request.form.get('last_flag', '10') }}"
+        required>
       <small>Dataset-specific numeric feature.</small>
     </div>
+
     <div class="field">
       <label for="logged_in">Successfully logged in?</label>
       <select id="logged_in" name="logged_in" required>
-        <option value="0" {% if request.form.get('logged_in','0') == '0' %}selected{% endif %}>No</option>
-        <option value="1" {% if request.form.get('logged_in','0') == '1' %}selected{% endif %}>Yes</option>
+        <option value="0"
+          {% if request.form.get('logged_in', '0') == '0' %}
+          selected
+          {% endif %}>No</option>
+        <option value="1"
+          {% if request.form.get('logged_in', '0') == '1' %}
+          selected
+          {% endif %}>Yes</option>
       </select>
     </div>
-    <button type="submit">Analyze connection</button>
+
+    <button class="submit-button" type="submit">
+      Analyze connection
+    </button>
   </form>
 
   {% if result %}
   <section class="result">
     <h2>Prediction: {{ result.label }}</h2>
-    <p>Model class: <strong>{{ result.prediction }}</strong></p>
-    {% if result.confidence_estimate is not none %}
-    <p>Model score: {{ "%.1f"|format(result.confidence_estimate * 100) }}%</p>
-    {% endif %}
+
+    <p>
+      Model class:
+      <strong>{{ result.prediction }}</strong>
+    </p>
+
+    <div class="result-grid">
+      <div class="result-item">
+        <span class="result-label">Confidence estimate</span>
+        <span class="result-value">
+          {% if result.confidence_estimate is not none %}
+            {{ "%.2f"|format(result.confidence_estimate * 100) }}%
+          {% else %}
+            Not available
+          {% endif %}
+        </span>
+      </div>
+
+      <div class="result-item">
+        <span class="result-label">Attack severity</span>
+        {% set severity = result.severity | default("Unknown") %}
+        {% set severity_class = severity | lower %}
+        <span class="severity severity-{{ severity_class }}">
+          {{ severity }}
+        </span>
+      </div>
+    </div>
+
     <p class="warning">{{ result.warning }}</p>
   </section>
   {% endif %}
+
   {% if error %}
-  <section class="error"><strong>Unable to predict:</strong> {{ error }}</section>
+  <section class="error">
+    <strong>Unable to predict:</strong> {{ error }}
+  </section>
   {% endif %}
 
-  <p class="warning">This is a benchmark-feature demo, not a live packet monitor. The numbers should ideally come from extracted network telemetry; arbitrary sample values are only for testing the interface. A prediction is not proof of an attack.</p>
+  <section class="history-section">
+    <div class="history-header">
+      <div>
+        <h2>Prediction History</h2>
+        <p class="intro">
+          Previously recorded predictions from this application.
+        </p>
+      </div>
+      <button class="refresh-button" id="refresh-history" type="button">
+        Refresh history
+      </button>
+    </div>
+
+    <p class="history-status" id="history-status" aria-live="polite">
+      Loading prediction history...
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Predicted class</th>
+            <th>Confidence</th>
+            <th>Severity</th>
+          </tr>
+        </thead>
+        <tbody id="history-body">
+          <tr>
+            <td colspan="4">Loading...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <p class="warning">
+    This is a benchmark-feature demo, not a live packet monitor.
+    The numbers should ideally come from extracted network telemetry;
+    arbitrary sample values are only for testing the interface.
+    A prediction is not proof of an attack.
+  </p>
 </div>
+
+<script>
+  const historyBody = document.getElementById("history-body");
+  const historyStatus = document.getElementById("history-status");
+  const refreshButton = document.getElementById("refresh-history");
+
+  function makeCell(value) {
+    const cell = document.createElement("td");
+    cell.textContent = value ?? "N/A";
+    return cell;
+  }
+
+  function makeSeverityCell(severity) {
+    const cell = document.createElement("td");
+    const badge = document.createElement("span");
+    const safeSeverity = String(severity || "Unknown").toLowerCase();
+
+    badge.className = "severity severity-" + safeSeverity;
+    badge.textContent = severity || "Unknown";
+
+    cell.appendChild(badge);
+    return cell;
+  }
+
+  async function loadHistory() {
+    refreshButton.disabled = true;
+    historyStatus.textContent = "Loading prediction history...";
+
+    try {
+      const response = await fetch("{{ url_for('history') }}", {
+        headers: { "Accept": "application/json" }
+      });
+
+      if (!response.ok) {
+        throw new Error("The history endpoint returned an error.");
+      }
+
+      const data = await response.json();
+
+      if (!Array.isArray(data.history)) {
+        throw new Error(data.error || "Invalid history response.");
+      }
+
+      historyBody.replaceChildren();
+
+      if (data.history.length === 0) {
+        const row = document.createElement("tr");
+        const cell = document.createElement("td");
+        cell.colSpan = 4;
+        cell.textContent = "No predictions recorded yet.";
+        row.appendChild(cell);
+        historyBody.appendChild(row);
+      } else {
+        // Most recent predictions appear first.
+        data.history.slice().reverse().forEach(record => {
+          const row = document.createElement("tr");
+
+          row.appendChild(makeCell(record.timestamp));
+          row.appendChild(makeCell(record.predicted_class));
+
+          const confidence = record.confidence_percent;
+          row.appendChild(
+            makeCell(
+              confidence === null || confidence === undefined
+                ? "N/A"
+                : Number(confidence).toFixed(2) + "%"
+            )
+          );
+
+          row.appendChild(makeSeverityCell(record.severity));
+          historyBody.appendChild(row);
+        });
+      }
+
+      historyStatus.textContent =
+        data.history.length + " prediction(s) recorded.";
+    } catch (error) {
+      historyBody.replaceChildren();
+
+      const row = document.createElement("tr");
+      const cell = document.createElement("td");
+      cell.colSpan = 4;
+      cell.textContent = "Unable to load history. Please try again.";
+      row.appendChild(cell);
+      historyBody.appendChild(row);
+
+      historyStatus.textContent = error.message;
+    } finally {
+      refreshButton.disabled = false;
+    }
+  }
+
+  refreshButton.addEventListener("click", loadHistory);
+  loadHistory();
+</script>
 </body>
 </html>
