@@ -1,257 +1,115 @@
-# 🔐 NetSentinel — Network Intrusion Detection System
+# NetSentinel AI — Network Intrusion Detection System
 
-![Python](https://img.shields.io/badge/Python-3.8%2B-blue?style=flat-square&logo=python)
-![Machine Learning](https://img.shields.io/badge/ML-Random%20Forest-orange?style=flat-square)
-![Cybersecurity](https://img.shields.io/badge/Domain-Network%20Security-red?style=flat-square)
-![Dataset](https://img.shields.io/badge/Dataset-NSL--KDD-lightblue?style=flat-square)
-![Flask](https://img.shields.io/badge/Framework-Flask-green?style=flat-square&logo=flask)
+**An ML-powered network traffic classification system for identifying potentially suspicious network activity.**
 
-**NetSentinel** is a machine learning-based Network Intrusion Detection System that analyzes network connection statistics and classifies traffic into normal traffic or one of four broad attack categories. It provides a web interface for predictions, confidence estimates, severity levels, and prediction history.
+NetSentinel AI is a machine-learning project that analyzes network connection statistics and classifies traffic into five broad categories: Normal, Denial of Service (DoS), Probe, Remote-to-Local (R2L), and User-to-Root (U2R).
 
-The project uses a Random Forest classifier trained on the NSL-KDD benchmark dataset and a Flask backend for prediction and validation.
+The project combines a Flask web application, a trained machine-learning pipeline, and a dark-themed dashboard to demonstrate network intrusion detection using the NSL-KDD dataset.
 
----
+## Key Features
 
-## 📌 Problem Statement
+- **Network Traffic Classification:** Predicts one of five traffic categories from connection statistics.
+- **Machine Learning Pipeline:** Uses a Balanced Random Forest classifier with preprocessing for numerical and categorical features.
+- **Interactive Web Interface:** Submit connection statistics through a browser-based dashboard.
+- **Prediction Confidence Estimate:** Displays the model's maximum predicted class probability.
+- **Severity Indicators:** Assigns an indicative severity level to each predicted category.
+- **Prediction History:** Records predictions and timestamps in a local CSV file.
+- **JSON Prediction API:** Supports programmatic predictions through Flask endpoints.
+- **Model Evaluation Tools:** Includes scripts for comparing algorithms, evaluating test performance, and experimenting with thresholds and class weights.
 
-Network attacks can disrupt services, compromise sensitive information, and affect system availability. Traditional security systems often rely on predefined signatures and rules to identify known threats.
-
-NetSentinel explores how machine learning can help classify network traffic using connection-level and traffic-statistical features.
-
-The system aims to:
-
-- Classify network activity into normal or malicious traffic categories.
-- Identify broad attack categories using a trained machine learning model.
-- Present prediction results through a simple web interface.
-- Display model confidence estimates and severity levels.
-- Maintain a history of previous predictions.
-
-**Scope:** NetSentinel is currently a benchmark-based demonstration. Users enter network connection statistics manually; the application does not capture live network packets.
-
----
-
-## 🎯 Key Features
-
-### 1. Machine Learning-Based Detection
-- Random Forest classification model.
-- Trained using the NSL-KDD training dataset.
-- Evaluated against a separate NSL-KDD test dataset.
-- Five output classes: Normal, DoS, Probe, R2L, and U2R.
-
-### 2. Prediction Confidence
-Displays the model's maximum predicted class probability as a percentage alongside the prediction.
-
-For example, a prediction may display `Probe / scanning` with a confidence estimate of `35.61%`.
-
-This value is a model estimate, not a guarantee that the prediction is correct.
-
-### 3. Attack Severity
-Each predicted class is assigned a severity level.
-
-| Predicted class | Description | Severity |
-|---|---|---|
-| Normal | Legitimate traffic category | Low |
-| DoS | Denial of Service | High |
-| Probe | Scanning or reconnaissance | Medium |
-| R2L | Remote-to-Local attack | High |
-| U2R | User-to-Root privilege escalation | Critical |
-
-### 4. Prediction History
-Successful predictions are recorded in `prediction_history.csv`, including:
-
-- Timestamp
-- Predicted class
-- Confidence percentage
-- Severity level
-
-The `/history` endpoint returns stored prediction records in JSON format.
-
-### 5. Input Validation
-The Flask backend validates numeric inputs, rejects non-finite values, checks rate features are between 0 and 1, and validates integer and login-status fields.
-
-### 6. Web Interface and API
-- Dark-themed Flask web interface.
-- Form-based network feature input.
-- Prediction results with severity and confidence.
-- JSON prediction endpoints for API testing.
-
----
-
-## 🧠 Attack Categories
-
-NetSentinel groups traffic into five classes.
-
-| Class | Description | Examples of associated attacks |
-|---|---|---|
-| Normal | Legitimate network activity | Normal connections |
-| DoS | Attempts to overwhelm network or system resources | Neptune, Smurf, Teardrop |
-| Probe | Scanning and reconnaissance activity | Nmap, Portsweep, Ipsweep |
-| R2L | Remote-to-Local unauthorized access | Password guessing, FTP Write |
-| U2R | User-to-Root privilege escalation | Buffer Overflow, Rootkit |
-
-These are broad categories based on the dataset's attack labels. A model prediction is not proof that an actual attack has occurred.
-
----
-
-## 📊 Dataset
-
-**Dataset:** NSL-KDD
-
-NSL-KDD is a benchmark dataset used in network intrusion detection research. It contains labeled connection records and 41 original traffic features, followed by an attack label and a difficulty value.
-
-### Dataset files
-
-The project uses these files:
-
-- `NSL_Dataset/KDDTrain+.txt` — training records.
-- `NSL_Dataset/KDDTest+.txt` — held-out test records.
-
-The files are included in the repository's dataset folder.
-
-### Feature preprocessing
-
-The training pipeline uses selected features rather than all 41 original features.
-
-**Numeric features:**
-- `count`
-- `dst_host_diff_srv_rate`
-- `dst_host_same_src_port_rate`
-- `dst_host_same_srv_rate`
-- `dst_host_srv_count`
-- `last_flag`
-- `logged_in`
-- `same_srv_rate`
-- `serror_rate`
-
-**Categorical features:**
-- `flag`
-- `service`
-
-Numeric missing values are handled using median imputation. Categorical values are handled using most-frequent imputation and one-hot encoding.
-
-Attack labels are mapped into the five output classes.
-
----
-
-## 🏗️ Project Architecture
-
-```text
-NetSentinal-AI/
-├── NSL_Dataset/
-│   ├── KDDTrain+.txt
-│   └── KDDTest+.txt
-├── templates/
-│   └── index.html
-├── app.py
-├── train_model.py
-├── model.pkl
-├── prediction_history.csv    # Generated locally at runtime
-├── test_api.py               # API validation test script
-├── Network Intrusion Detection System.ipynb
-├── corrm.csv
-├── num_summary.csv
-├── requirements.txt
-├── Dockerfile
-├── Procfile
-├── .gitignore
-├── README.md
-└── LICENSE
-```
-
-`prediction_history.csv` is generated when predictions are made and is excluded from version control.
-
-### Application workflow
-
-```text
-User enters connection statistics
-             |
-             v
-      Flask web interface
-             |
-             v
-       Input validation
-             |
-             v
-   Preprocessing pipeline
-             |
-             v
-     Random Forest model
-             |
-             v
-  Predicted class and probability
-             |
-             v
-   Severity classification
-             |
-             v
-    Display prediction result
-             |
-             v
-   Save prediction to CSV history
-```
-
----
-
-## 🤖 Model Training and Evaluation
-
-The model is trained by `train_model.py`.
-
-### Training configuration
-
-- Algorithm: Random Forest Classifier
-- Number of trees: 250
-- Random state: 42
-- Class weighting: `balanced_subsample`
-- Minimum samples per leaf: 2
-- Preprocessing: Scikit-learn pipelines with numeric and categorical transformations
-
-The complete preprocessing and classification pipeline is serialized into `model.pkl` using Joblib.
-
-### Current evaluation results
-
-The latest training run produced the following results on the held-out test dataset.
-
-| Metric | Result |
-|---|---:|
-| Training records | 125,973 |
-| Test records | 22,544 |
-| Overall accuracy | 78.40% |
-| Weighted F1-score | 0.77 |
-| Macro F1-score | 0.63 |
-
-### Per-class performance
-
-| Class | Precision | Recall | F1-score |
-|---|---:|---:|---:|
-| Normal | 0.69 | 0.97 | 0.81 |
-| DoS | 0.96 | 0.80 | 0.88 |
-| Probe | 0.80 | 0.63 | 0.70 |
-| R2L | 0.97 | 0.25 | 0.40 |
-| U2R | 0.37 | 0.37 | 0.37 |
-
-The results show that performance varies by attack category. In particular, R2L and U2R recall require improvement. These results are from the current benchmark evaluation and should not be interpreted as real-world detection performance.
-
----
-
-## 🛠️ Technology Stack
+## Technology Stack
 
 | Component | Technology |
 |---|---|
 | Programming language | Python |
+| Web framework | Flask |
+| Machine learning | scikit-learn, imbalanced-learn |
 | Data processing | Pandas, NumPy |
-| Machine learning | Scikit-learn |
 | Model serialization | Joblib |
-| Backend | Flask |
-| Frontend | HTML, CSS |
-| Data storage | CSV prediction history |
+| Frontend | HTML, CSS, JavaScript |
 | Dataset | NSL-KDD |
-| Development environment | VS Code |
-| Version control | Git and GitHub |
-| Container configuration | Dockerfile |
+| Prediction history | CSV |
 
----
+## System Architecture
 
-## 🚀 Running Locally
+```text
+User
+  |
+  v
+Flask Web Interface
+  |
+  v
+Input Validation
+  |
+  v
+Saved ML Pipeline (model.pkl)
+  |
+  v
+Balanced Random Forest
+  |
+  v
+Predicted Traffic Category
+  |
+  +----> Result and confidence estimate
+  |
+  +----> Prediction history (CSV)
+```
+
+The Flask application receives connection statistics, validates the inputs, passes them to the saved preprocessing and classification pipeline, and displays the prediction.
+
+## Dataset
+
+NetSentinel uses the NSL-KDD intrusion detection dataset, a benchmark dataset derived from KDD Cup 1999.
+
+The training script expects these files:
+
+```text
+NSL_Dataset/
+├── KDDTrain+.txt
+└── KDDTest+.txt
+```
+
+The dataset contains network connection records, attack labels, and a difficulty score. The difficulty score is excluded from the model inputs.
+
+The project maps attack labels into five categories:
+
+| Class | Description |
+|---|---|
+| `normal` | Normal network traffic |
+| `dos` | Denial-of-Service attacks |
+| `probe` | Network probing and scanning |
+| `r2l` | Remote-to-Local attacks |
+| `u2r` | User-to-Root attacks |
+
+**Dataset note:** Download the NSL-KDD dataset separately if it is not included in your local project copy. Place the required files in `NSL_Dataset/` before training.
+
+## Model Features
+
+The current model uses **10 input features**.
+
+### Numerical features
+
+| Feature | Description |
+|---|---|
+| `count` | Number of connections to the same destination host within the dataset's time window |
+| `dst_host_diff_srv_rate` | Rate of connections to different services for the destination host |
+| `dst_host_same_src_port_rate` | Rate of connections using the same source port for the destination host |
+| `dst_host_same_srv_rate` | Rate of connections using the same service for the destination host |
+| `dst_host_srv_count` | Number of connections to the same service for the destination host |
+| `logged_in` | Whether the connection successfully logged in |
+| `same_srv_rate` | Rate of connections using the same service |
+| `serror_rate` | Rate of connections with SYN-related errors |
+
+### Categorical features
+
+| Feature | Description |
+|---|---|
+| `flag` | Connection status or state, such as `SF`, `S0`, or `REJ` |
+| `service` | Network service associated with the connection, such as HTTP |
+
+The preprocessing pipeline handles missing numerical values and encodes categorical values before classification.
+
+## Installation and Setup
 
 ### 1. Clone the repository
 
@@ -260,148 +118,228 @@ git clone https://github.com/NautiyalX/NetSentinal-AI.git
 cd NetSentinal-AI
 ```
 
-### 2. Create and activate a virtual environment
+To use the latest work on the development branch:
 
-On Windows PowerShell:
+```bash
+git checkout update-netsentinel
+```
+
+### 2. Create a virtual environment
+
+**Windows PowerShell:**
 
 ```powershell
 python -m venv venv
 .\venv\Scripts\Activate.ps1
 ```
 
+If PowerShell blocks activation, use the environment's Python executable directly as shown in the next steps.
+
+**macOS/Linux:**
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
 ### 3. Install dependencies
 
-```powershell
+```bash
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
 ### 4. Verify the project files
 
-Ensure the following files exist:
+Ensure that `model.pkl` exists in the project root and that the dataset files are present if you intend to retrain the model.
 
-```text
-model.pkl
-app.py
-templates/index.html
-NSL_Dataset/KDDTrain+.txt
-NSL_Dataset/KDDTest+.txt
-```
+## Running NetSentinel
 
-The existing trained model is sufficient to run predictions. Retraining is optional.
+Start the Flask application from the project root:
 
-### 5. Start the Flask application
-
-```powershell
+```bash
 python app.py
 ```
 
-Open the application at:
+On Windows, if using the virtual environment directly:
+
+```powershell
+.\venv\Scripts\python.exe app.py
+```
+
+Open the application in your browser:
 
 **http://127.0.0.1:10000/**
 
-### 6. Retrain the model (optional)
+Enter the network connection statistics and select **Analyze connection** to view the prediction.
 
-To retrain the model using the included dataset:
+## Training the Model
 
-```powershell
+To train the model using the available NSL-KDD training and test files, run:
+
+```bash
 python train_model.py
 ```
 
-This evaluates the trained pipeline and saves the resulting model to `model.pkl`.
+The training pipeline:
 
----
+1. Loads and preprocesses the NSL-KDD dataset.
+2. Maps attack labels into five broad classes.
+3. Uses the defined 10 input features.
+4. Trains a Balanced Random Forest classifier.
+5. Evaluates predictions on the official KDDTest+ dataset.
+6. Saves the trained pipeline as `model.pkl`.
 
-## 🔌 API Endpoints
+**Warning:** Training replaces the active model after a successful run. Keep a separate backup if you want to preserve a previous version.
 
-### 1. Web application
+## Model Evaluation
 
-`GET /`
+The current training run reported the following results on the official KDDTest+ dataset:
 
-Opens the main prediction interface.
+| Metric | Result |
+|---|---:|
+| Accuracy | 74.41% |
+| Macro F1-score | 0.5599 |
+| Macro Recall | 0.6276 |
 
-### 2. Prediction API
+The model has uneven performance across classes. In particular, R2L and U2R attacks are more difficult to classify reliably, and U2R predictions have a high false-positive risk.
 
-`POST /api/predict`
+Accuracy alone does not describe intrusion detection performance adequately. Macro F1, per-class precision and recall, and the confusion matrix should also be considered.
 
-Accepts a JSON object containing the required feature values.
+### Evaluation and experimentation scripts
 
-`POST /results`
+The repository includes additional scripts for model analysis:
 
-Provides the same JSON prediction functionality.
+| Script | Purpose |
+|---|---|
+| `compare_algorithms.py` | Compare classification algorithms |
+| `compare_models.py` | Additional model comparison experiments |
+| `evaluate_test_models.py` | Evaluate candidate models on test data |
+| `tune_class_weights.py` | Experiment with class weighting |
+| `tune_thresholds.py` | Experiment with prediction thresholds |
+| `test_api.py` | Test the prediction API |
+
+Run these scripts from the project root using your Python environment. They are experimental tools; review their configuration before running them, especially when using the official test dataset.
+
+## API Usage
+
+NetSentinel provides a JSON prediction endpoint at:
+
+```text
+POST /api/predict
+```
+
+Send a JSON object containing the named input features.
 
 Example request:
 
 ```json
 {
-  "service": "http",
-  "flag": "SF",
   "count": 10,
-  "dst_host_srv_count": 10,
-  "dst_host_diff_srv_rate": 0.2,
-  "dst_host_same_src_port_rate": 0.5,
-  "dst_host_same_srv_rate": 0.8,
-  "same_srv_rate": 0.8,
-  "serror_rate": 0.1,
-  "last_flag": 10,
-  "logged_in": 0
+  "dst_host_diff_srv_rate": 0.05,
+  "dst_host_same_src_port_rate": 0.02,
+  "dst_host_same_srv_rate": 0.95,
+  "dst_host_srv_count": 50,
+  "logged_in": 1,
+  "same_srv_rate": 0.95,
+  "serror_rate": 0.0,
+  "flag": "sf",
+  "service": "http"
 }
 ```
 
-Example response:
+Example using `curl`:
 
-```json
-{
-  "prediction": "probe",
-  "label": "Probe / scanning",
-  "confidence_estimate": 0.3561,
-  "severity": "Medium",
-  "warning": "Benchmark-model estimate only; this does not prove an attack occurred."
-}
+```bash
+curl -X POST http://127.0.0.1:10000/api/predict \
+  -H "Content-Type: application/json" \
+  -d "{\"count\":10,\"dst_host_diff_srv_rate\":0.05,\"dst_host_same_src_port_rate\":0.02,\"dst_host_same_srv_rate\":0.95,\"dst_host_srv_count\":50,\"logged_in\":1,\"same_srv_rate\":0.95,\"serror_rate\":0.0,\"flag\":\"sf\",\"service\":\"http\"}"
 ```
 
-The prediction and confidence shown above are illustrative.
+The response includes the predicted class, a human-readable label, a confidence estimate when supported by the model, and an indicative severity level.
 
-### 3. Prediction history
+Additional endpoints:
 
-`GET /history`
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/` | GET | Display the dashboard |
+| `/` | POST | Submit a prediction from the web form |
+| `/api/predict` | POST | Return a prediction as JSON |
+| `/results` | POST | Alternative JSON prediction endpoint |
+| `/history` | GET | Retrieve recorded prediction history |
 
-Returns previously saved prediction records as JSON.
+## Prediction History
 
----
+Predictions are recorded in:
 
-## 🔒 Security and Limitations
+```text
+prediction_history.csv
+```
 
-- NetSentinel uses benchmark data rather than live network packet capture.
-- Predictions depend on manually supplied feature values.
-- The model has not been established as production-ready for enterprise or defense networks.
-- The confidence estimate is not necessarily a calibrated probability of correctness.
-- The current model has lower recall for R2L and U2R classes.
-- Prediction history is stored locally in CSV format and is not a centralized database.
-- The application should be deployed with appropriate security controls before being exposed to an external network.
+The file contains the prediction timestamp, predicted class, confidence estimate, and severity. It is generated locally when predictions are made.
 
----
+Avoid committing generated history files if they contain data you do not want to publish.
 
-## 💡 Future Improvements
+## Project Structure
 
-- [ ] Improve recall for R2L and U2R attack categories.
-- [ ] Add explainable AI using SHAP to explain individual predictions.
-- [ ] Add visual analytics for prediction history and attack distributions.
-- [ ] Introduce automated tests for the model and API.
-- [ ] Evaluate performance on newer datasets such as CICIDS2017 or UNSW-NB15.
-- [ ] Explore real-time packet capture using Scapy or PyShark.
-- [ ] Add experiment tracking using MLflow.
-- [ ] Explore sequential deep-learning approaches for network traffic analysis.
+```text
+NetSentinal-AI/
+├── app.py
+├── train_model.py
+├── model.pkl
+├── requirements.txt
+├── NSL_Dataset/
+│   ├── KDDTrain+.txt
+│   └── KDDTest+.txt
+├── templates/
+│   └── index.html
+├── static/
+├── results/
+├── compare_algorithms.py
+├── compare_models.py
+├── evaluate_test_models.py
+├── test_api.py
+├── tune_class_weights.py
+├── tune_thresholds.py
+├── Dockerfile
+└── README.md
+```
 
----
+The exact files and folders may vary depending on the version of the repository. The dataset, generated model, and prediction history may be maintained separately from version control.
 
-## 📚 Project Summary
+## Limitations
 
-NetSentinel demonstrates a complete machine learning workflow for network intrusion classification, from dataset preprocessing and model training to Flask-based inference and prediction history.
+- The model uses a selected subset of 10 NSL-KDD features rather than all original dataset features.
+- The input values supplied manually through the web interface may not reflect actual live network traffic.
+- NSL-KDD is a benchmark dataset and may not represent modern production network environments.
+- The confidence estimate is the model's predicted class probability, not a guarantee that a prediction is correct.
+- The application currently demonstrates classification; it does not automatically capture live packets or block malicious connections.
+- Model performance must be independently validated before any real-world security deployment.
 
-The current implementation achieves **78.40% accuracy on the NSL-KDD held-out test set** and includes five-class prediction, confidence estimates, severity classification, input validation, and CSV-based history.
+**NetSentinel should be treated as an educational and experimental intrusion detection project, not as a production-ready security monitoring solution.**
 
-The project is intended for educational purposes and further experimentation in machine learning-based network security.
+## Future Improvements
 
----
+- Integrate live network traffic capture and feature extraction.
+- Improve detection of rare attack classes.
+- Add confusion-matrix visualizations and per-class performance dashboards.
+- Introduce alerting and filtering for suspicious predictions.
+- Add authentication and persistent storage for multi-user deployments.
+- Evaluate the model on newer datasets and representative real-world traffic.
+- Containerize the application for easier deployment.
 
-**Repository:** [NautiyalX/NetSentinal-AI](https://github.com/NautiyalX/NetSentinal-AI)
+## Contributing
+
+Contributions and suggestions are welcome. For significant changes, create a separate branch, test the changes locally, and submit a pull request.
+
+## Disclaimer
+
+This project is intended for educational, research, and defensive cybersecurity purposes. Predictions are estimates and should not be used as the sole basis for security decisions.
+
+## Author
+
+**Adarsh Nautiyal**
+
+GitHub: [@NautiyalX](https://github.com/NautiyalX)
+
+Project: [NetSentinal-AI](https://github.com/NautiyalX/NetSentinal-AI)
