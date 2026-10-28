@@ -8,20 +8,25 @@ import numpy as np
 import pandas as pd
 from flask import Flask, jsonify, render_template, request
 
-app = Flask(__name__)
-
+# Resolve all paths relative to this app.py file.
 BASE_DIR = Path(__file__).resolve().parent
+TEMPLATE_DIR = BASE_DIR / "templates"
 MODEL_PATH = BASE_DIR / "model.pkl"
 HISTORY_PATH = BASE_DIR / "prediction_history.csv"
 
-# Must match train_model.py exactly.
+app = Flask(
+    __name__,
+    template_folder=str(TEMPLATE_DIR),
+)
+app.config["TEMPLATES_AUTO_RELOAD"] = True
+
+# These must match train_model.py.
 NUMERIC_FEATURES = [
     "count",
     "dst_host_diff_srv_rate",
     "dst_host_same_src_port_rate",
     "dst_host_same_srv_rate",
     "dst_host_srv_count",
-    "last_flag",
     "logged_in",
     "same_srv_rate",
     "serror_rate",
@@ -46,16 +51,21 @@ SEVERITY_LEVELS = {
     "u2r": "Critical",
 }
 
-# Common NSL-KDD connection flags.
 ALLOWED_FLAGS = {
     "sf", "s0", "rej", "rstr", "s1", "s2", "s3",
-    "sh", "rsto", "s3", "oth", "rstos0", "rsts0",
-    "s2", "s0", "oth", "sh", "rsto", "rsto",
+    "sh", "rsto", "oth", "rstos0", "rsts0",
 }
 
-# Values accepted by the NSL-KDD service feature.
-# Unknown categories are also supported by the model's OneHotEncoder,
-# so the service field is checked for non-empty text rather than blocked.
+
+# Prevent the browser from reusing an outdated HTML response.
+@app.after_request
+def disable_caching(response):
+    response.headers["Cache-Control"] = (
+        "no-store, no-cache, must-revalidate, max-age=0"
+    )
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 
 def load_model():
@@ -65,7 +75,6 @@ def load_model():
 
     loaded = joblib.load(MODEL_PATH)
 
-    # A retrained model must be a pipeline with the expected input schema.
     if hasattr(loaded, "feature_names_in_"):
         model_features = list(loaded.feature_names_in_)
         if model_features != FEATURES:
@@ -87,7 +96,6 @@ except Exception:
 def build_input(data):
     cleaned = {}
 
-    # Validate numeric fields.
     for name in NUMERIC_FEATURES:
         value = data.get(name)
 
@@ -100,11 +108,10 @@ def build_input(data):
             raise ValueError(f"{name.replace('_', ' ')} must be numeric.")
 
         if not np.isfinite(number):
-            raise ValueError(f"{name.replace('_', ' ')} must be a finite number.")
+            raise ValueError(f"{name.replace('_', ' ')} must be finite.")
 
         cleaned[name] = number
 
-    # Rates must be between 0 and 1.
     rate_features = [
         "dst_host_diff_srv_rate",
         "dst_host_same_src_port_rate",
@@ -119,21 +126,19 @@ def build_input(data):
                 f"{name.replace('_', ' ')} must be between 0 and 1."
             )
 
-    # Count fields must be non-negative integers.
-    for name in ("count", "dst_host_srv_count", "last_flag"):
+    for name in ("count", "dst_host_srv_count"):
         if cleaned[name] < 0 or not cleaned[name].is_integer():
             raise ValueError(
-                f"{name.replace('_', ' ')} must be a non-negative whole number."
+                f"{name.replace('_', ' ')} must be a "
+                "non-negative whole number."
             )
         cleaned[name] = int(cleaned[name])
 
-    # Login status must be 0 or 1.
     if cleaned["logged_in"] not in (0, 1):
         raise ValueError("Login status must be 0 (No) or 1 (Yes).")
 
     cleaned["logged_in"] = int(cleaned["logged_in"])
 
-    # Validate categorical fields.
     for name in CATEGORICAL_FEATURES:
         value = str(data.get(name, "")).strip().lower()
 
@@ -145,7 +150,6 @@ def build_input(data):
 
         cleaned[name] = value
 
-    # Keep column order identical to the training script.
     return pd.DataFrame(
         [{name: cleaned[name] for name in FEATURES}],
         columns=FEATURES,
@@ -153,9 +157,10 @@ def build_input(data):
 
 
 def save_prediction(prediction, confidence, severity):
-    """Append a successful prediction to CSV history."""
     record = pd.DataFrame([{
-        "timestamp": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "timestamp": datetime.now().astimezone().isoformat(
+            timespec="seconds"
+        ),
         "predicted_class": prediction,
         "confidence_percent": (
             round(confidence * 100, 2)
@@ -176,12 +181,11 @@ def save_prediction(prediction, confidence, severity):
 def predict_result(data):
     if model is None:
         raise RuntimeError(
-            "The model is unavailable. Check model.pkl and retrain_model.py "
-            "compatibility before predicting."
+            "The model is unavailable or its feature schema is incompatible. "
+            "Check model.pkl and the training feature schema."
         )
 
     row = build_input(data)
-
     predicted = str(model.predict(row)[0]).lower()
 
     confidence = None
@@ -216,12 +220,16 @@ def home():
             error = str(exc)
         except Exception:
             app.logger.exception("Prediction failed")
-            error = (
-                "Prediction failed. Confirm model.pkl matches "
-                "the current feature schema."
-            )
+            error = "Prediction failed. Check the model and input schema."
 
-    return render_template("index.html", result=result, error=error)
+    response = app.make_response(
+        render_template("index.html", result=result, error=error)
+    )
+
+    # Temporary diagnostic headers to verify the served template.
+    response.headers["X-NetSentinel-App"] = str(Path(__file__).resolve())
+    response.headers["X-NetSentinel-Template"] = str(TEMPLATE_DIR / "index.html")
+    return response
 
 
 @app.route("/results", methods=["POST"])
@@ -243,14 +251,12 @@ def results():
     except Exception:
         app.logger.exception("API prediction failed")
         return jsonify({
-            "error": "Prediction failed. Confirm the model matches "
-                     "the current feature schema."
+            "error": "Prediction failed. Check the model and input schema."
         }), 500
 
 
 @app.route("/history", methods=["GET"])
 def history():
-    """Return saved prediction history as JSON."""
     if not HISTORY_PATH.exists():
         return jsonify({"history": []})
 
@@ -264,4 +270,10 @@ def history():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
+
+    print(f"NetSentinel app: {Path(__file__).resolve()}")
+    print(f"Template file: {TEMPLATE_DIR / 'index.html'}")
+    print(f"Model file: {MODEL_PATH}")
+    print(f"Model loaded: {model is not None}")
+
     app.run(host="127.0.0.1", port=port, debug=False)
