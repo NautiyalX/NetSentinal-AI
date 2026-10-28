@@ -1,4 +1,4 @@
-
+﻿
 <!doctype html>
 <html lang="en">
 <head>
@@ -290,7 +290,7 @@
 
     <div class="field">
       <label for="dst_host_diff_srv_rate">
-        Destination different-service rate (0–1)
+        Destination different-service rate (0â€“1)
       </label>
       <input id="dst_host_diff_srv_rate"
         name="dst_host_diff_srv_rate" type="number"
@@ -301,7 +301,7 @@
 
     <div class="field">
       <label for="dst_host_same_src_port_rate">
-        Same source-port rate (0–1)
+        Same source-port rate (0â€“1)
       </label>
       <input id="dst_host_same_src_port_rate"
         name="dst_host_same_src_port_rate" type="number"
@@ -312,7 +312,7 @@
 
     <div class="field">
       <label for="dst_host_same_srv_rate">
-        Destination same-service rate (0–1)
+        Destination same-service rate (0â€“1)
       </label>
       <input id="dst_host_same_srv_rate"
         name="dst_host_same_srv_rate" type="number"
@@ -322,7 +322,7 @@
     </div>
 
     <div class="field">
-      <label for="same_srv_rate">Same-service rate (0–1)</label>
+      <label for="same_srv_rate">Same-service rate (0â€“1)</label>
       <input id="same_srv_rate" name="same_srv_rate" type="number"
         min="0" max="1" step="0.01"
         value="{{ request.form.get('same_srv_rate', '0.80') }}"
@@ -330,20 +330,11 @@
     </div>
 
     <div class="field">
-      <label for="serror_rate">SYN/error rate (0–1)</label>
+      <label for="serror_rate">SYN/error rate (0â€“1)</label>
       <input id="serror_rate" name="serror_rate" type="number"
         min="0" max="1" step="0.01"
         value="{{ request.form.get('serror_rate', '0.10') }}"
         required>
-    </div>
-
-    <div class="field">
-      <label for="last_flag">Last flag value</label>
-      <input id="last_flag" name="last_flag" type="number"
-        min="0" step="1"
-        value="{{ request.form.get('last_flag', '10') }}"
-        required>
-      <small>Dataset-specific numeric feature.</small>
     </div>
 
     <div class="field">
@@ -546,3 +537,4 @@
 </script>
 </body>
 </html>
+

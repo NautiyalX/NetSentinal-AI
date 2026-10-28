@@ -1,51 +1,69 @@
 
 from pathlib import Path
+import shutil
 import sys
 
 import joblib
 import pandas as pd
+
 from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
     confusion_matrix,
+    f1_score,
+    recall_score,
 )
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
+from imblearn.ensemble import BalancedRandomForestClassifier
 
-# Project paths
+
+# --------------------------------------------------
+# 1. Project paths
+# --------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "NSL_Dataset"
+
 TRAIN_PATH = DATA_DIR / "KDDTrain+.txt"
 TEST_PATH = DATA_DIR / "KDDTest+.txt"
-MODEL_PATH = BASE_DIR / "model.pkl"
 
-# NSL-KDD contains 41 features, the attack label, and difficulty score.
+MODEL_PATH = BASE_DIR / "model.pkl"
+BACKUP_PATH = BASE_DIR / "model_backup.pkl"
+TEMP_PATH = BASE_DIR / "model.tmp"
+
+
+# --------------------------------------------------
+# 2. NSL-KDD dataset columns
+# 41 features + attack label + difficulty metadata
+# --------------------------------------------------
 RAW_COLUMNS = [
     "duration", "protocol_type", "service", "flag", "src_bytes",
     "dst_bytes", "land", "wrong_fragment", "urgent", "hot",
-    "num_failed_logins", "logged_in", "num_compromised", "root_shell",
-    "su_attempted", "num_root", "num_file_creations", "num_shells",
-    "num_access_files", "num_outbound_cmds", "is_host_login",
-    "is_guest_login", "count", "srv_count", "serror_rate",
-    "srv_serror_rate", "rerror_rate", "srv_rerror_rate", "same_srv_rate",
-    "diff_srv_rate", "srv_diff_host_rate", "dst_host_count",
-    "dst_host_srv_count", "dst_host_same_srv_rate",
+    "num_failed_logins", "logged_in", "num_compromised",
+    "root_shell", "su_attempted", "num_root", "num_file_creations",
+    "num_shells", "num_access_files", "num_outbound_cmds",
+    "is_host_login", "is_guest_login", "count", "srv_count",
+    "serror_rate", "srv_serror_rate", "rerror_rate", "srv_rerror_rate",
+    "same_srv_rate", "diff_srv_rate", "srv_diff_host_rate",
+    "dst_host_count", "dst_host_srv_count", "dst_host_same_srv_rate",
     "dst_host_diff_srv_rate", "dst_host_same_src_port_rate",
     "dst_host_srv_diff_host_rate", "dst_host_serror_rate",
     "dst_host_srv_serror_rate", "dst_host_rerror_rate",
-    "dst_host_srv_rerror_rate", "attack", "last_flag",
+    "dst_host_srv_rerror_rate", "attack", "difficulty",
 ]
 
+
+# --------------------------------------------------
+# 3. Features — must match app.py exactly
+# --------------------------------------------------
 NUMERIC_FEATURES = [
     "count",
     "dst_host_diff_srv_rate",
     "dst_host_same_src_port_rate",
     "dst_host_same_srv_rate",
     "dst_host_srv_count",
-    "last_flag",
     "logged_in",
     "same_srv_rate",
     "serror_rate",
@@ -54,16 +72,27 @@ NUMERIC_FEATURES = [
 CATEGORICAL_FEATURES = ["flag", "service"]
 FEATURES = NUMERIC_FEATURES + CATEGORICAL_FEATURES
 
+CLASS_ORDER = ["normal", "dos", "probe", "r2l", "u2r"]
+
+
+# --------------------------------------------------
+# 4. Map individual attacks into five categories
+# --------------------------------------------------
 DOS = {
     "back", "land", "pod", "neptune", "smurf", "teardrop",
     "apache2", "udpstorm", "processtable", "worm", "mailbomb",
 }
-PROBE = {"satan", "ipsweep", "nmap", "portsweep", "mscan", "saint"}
+
+PROBE = {
+    "satan", "ipsweep", "nmap", "portsweep", "mscan", "saint",
+}
+
 R2L = {
     "guess_passwd", "ftp_write", "imap", "phf", "multihop",
     "warezmaster", "warezclient", "spy", "xlock", "xsnoop",
     "snmpguess", "snmpgetattack", "httptunnel", "sendmail", "named",
 }
+
 U2R = {
     "buffer_overflow", "loadmodule", "rootkit", "perl",
     "sqlattack", "xterm", "ps",
@@ -84,15 +113,15 @@ def categorize(attack):
     if attack in U2R:
         return "u2r"
 
-    raise ValueError(f"Unknown attack label in dataset: {attack!r}")
+    raise ValueError(f"Unknown attack label: {attack!r}")
 
 
+# --------------------------------------------------
+# 5. Load dataset
+# --------------------------------------------------
 def read_dataset(path):
     if not path.is_file():
-        raise FileNotFoundError(
-            f"Dataset not found: {path}\n"
-            "Place KDDTrain+.txt and KDDTest+.txt inside NSL_Dataset."
-        )
+        raise FileNotFoundError(f"Dataset not found: {path}")
 
     df = pd.read_csv(
         path,
@@ -104,30 +133,38 @@ def read_dataset(path):
 
     if df.shape[1] != len(RAW_COLUMNS):
         raise ValueError(
-            f"{path.name} has an unexpected number of columns: "
-            f"{df.shape[1]} (expected {len(RAW_COLUMNS)})."
+            f"{path.name}: expected {len(RAW_COLUMNS)} columns, "
+            f"found {df.shape[1]}."
         )
 
     df["attack"] = (
         df["attack"].astype(str).str.strip().str.lower().str.rstrip(".")
     )
-    df["target"] = df["attack"].map(
-        lambda attack: categorize(attack)
-    )
+    df["target"] = df["attack"].apply(categorize)
 
-    return df
+    # Difficulty is metadata, not a model input.
+    X = df[FEATURES].copy()
+    y = df["target"].copy()
+
+    return X, y
 
 
+# --------------------------------------------------
+# 6. Train, evaluate, and safely save
+# --------------------------------------------------
 def main():
     print("Loading NSL-KDD datasets...")
 
-    train_df = read_dataset(TRAIN_PATH)
-    test_df = read_dataset(TEST_PATH)
+    X_train, y_train = read_dataset(TRAIN_PATH)
+    X_test, y_test = read_dataset(TEST_PATH)
 
-    X_train = train_df[FEATURES].copy()
-    y_train = train_df["target"]
-    X_test = test_df[FEATURES].copy()
-    y_test = test_df["target"]
+    print("Training rows:", f"{len(X_train):,}")
+    print("Testing rows: ", f"{len(X_test):,}")
+    print("Input features:", len(FEATURES))
+    print("Feature names:", FEATURES)
+
+    print("\nTraining class distribution:")
+    print(y_train.value_counts().to_string())
 
     numeric_pipeline = Pipeline([
         ("imputer", SimpleImputer(strategy="median")),
@@ -145,48 +182,66 @@ def main():
 
     model = Pipeline([
         ("preprocess", preprocess),
-        ("classifier", RandomForestClassifier(
-            n_estimators=250,
+        ("classifier", BalancedRandomForestClassifier(
+            n_estimators=200,
             random_state=42,
             n_jobs=-1,
-            class_weight="balanced_subsample",
-            min_samples_leaf=2,
         )),
     ])
 
-    print(f"Training rows: {len(train_df):,}")
-    print(f"Testing rows:  {len(test_df):,}")
-    print("Training Random Forest classifier...")
-
+    print("\nTraining Balanced Random Forest...")
     model.fit(X_train, y_train)
-    predicted = model.predict(X_test)
 
-    labels = ["normal", "dos", "probe", "r2l", "u2r"]
+    # Evaluate on the official test set.
+    print("\nEvaluating on KDDTest+...")
+    predictions = model.predict(X_test)
 
-    print(f"\nHeld-out accuracy: {accuracy_score(y_test, predicted):.4f}")
+    print("\nAccuracy:", round(accuracy_score(y_test, predictions), 4))
+    print(
+        "Macro F1:",
+        round(f1_score(
+            y_test, predictions, average="macro", zero_division=0
+        ), 4),
+    )
+    print(
+        "Macro Recall:",
+        round(recall_score(
+            y_test, predictions, average="macro", zero_division=0
+        ), 4),
+    )
+
     print("\nClassification report:")
     print(classification_report(
         y_test,
-        predicted,
-        labels=labels,
+        predictions,
+        labels=CLASS_ORDER,
         zero_division=0,
     ))
 
-    print("Confusion matrix (normal, dos, probe, r2l, u2r):")
-    print(confusion_matrix(y_test, predicted, labels=labels))
+    print("\nConfusion matrix (actual rows, predicted columns):")
+    print(confusion_matrix(
+        y_test,
+        predictions,
+        labels=CLASS_ORDER,
+    ))
 
-    # Save to a temporary file first so a failed save won't partially
-    # overwrite the existing model.
-    temporary_model_path = MODEL_PATH.with_suffix(".tmp")
+    # Back up the existing model before replacing it.
+    if MODEL_PATH.exists() and not BACKUP_PATH.exists():
+        shutil.copy2(MODEL_PATH, BACKUP_PATH)
+        print(f"\nExisting model backed up to: {BACKUP_PATH}")
 
+    # Save to a temporary file, then replace the model atomically.
     try:
-        joblib.dump(model, temporary_model_path)
-        temporary_model_path.replace(MODEL_PATH)
+        joblib.dump(model, TEMP_PATH)
+        joblib.load(TEMP_PATH)  # Verify that the saved file loads.
+        TEMP_PATH.replace(MODEL_PATH)
     finally:
-        if temporary_model_path.exists():
-            temporary_model_path.unlink()
+        if TEMP_PATH.exists():
+            TEMP_PATH.unlink()
 
-    print(f"\nSaved retrained model to: {MODEL_PATH}")
+    print(f"\nNew model saved to: {MODEL_PATH}")
+    print("Model input features:", len(FEATURES))
+    print("Training complete.")
 
 
 if __name__ == "__main__":
